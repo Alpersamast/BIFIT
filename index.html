@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0e0f14">
-<title>Finans Takip</title>
+<title>BİFİT</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -287,6 +287,13 @@ nav {
 }
 .add-dashed:active { border-color:var(--accent); color:var(--accent); }
 
+.sg-chip {
+  padding:6px 14px; border-radius:20px; font-size:12px; font-weight:500;
+  border:1px solid var(--border); color:var(--muted); background:var(--card);
+  cursor:pointer; transition:.15s;
+}
+.sg-chip.active { background:var(--accent); color:#000; border-color:var(--accent); font-weight:700; }
+
 /* ── ÖZET ── */
 .stat-row { display:flex; gap:8px; padding:0 16px; margin-bottom:8px; }
 .stat-box {
@@ -367,7 +374,7 @@ nav {
     <div class="page-header" style="padding-top:max(16px,env(safe-area-inset-top))">
       <div>
         <div class="page-sub">BİR ALPER SAMAST UYGULAMASIDIR</div>
-        <div class="page-title">Finans Takip</div>
+        <div class="page-title">BİFİT <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0.5px;vertical-align:middle">Bireysel Finans Takip</span></div>
       </div>
       <div style="font-size:22px;cursor:pointer" onclick="showScreen('ayarlar')">⚙️</div>
     </div>
@@ -381,7 +388,6 @@ nav {
         <div class="bal-meta-item"><label>Taksit/ay</label><div class="val val-blue" id="home-taksit">₺0</div></div>
       </div>
     </div>
-
     <div class="month-nav">
       <button onclick="changeMonth(-1)">‹</button>
       <span id="month-label"></span>
@@ -445,7 +451,6 @@ nav {
     </div>
     <div class="legend-list" id="legend-list"></div>
     <div class="stat-row">
-      <div class="stat-box"><label>🍽️ Yemek Kartı</label><div class="sv val-blue" id="oz-yemek">₺0</div></div>
       <div class="stat-box"><label>💰 Kalan</label><div class="sv val-green" id="oz-kalan">₺0</div></div>
     </div>
   </div>
@@ -467,13 +472,31 @@ nav {
       </div>
     </div>
     <div class="settings-section">
+      <div class="settings-title">Sabit Gelirler</div>
+      <div id="sabit-gelir-list"></div>
+      <div class="settings-item" style="flex-direction:column;align-items:flex-start;gap:10px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Ad</div>
+        <input id="sg-ad" type="text" placeholder="Kira geliri vb." style="background:none;border:none;border-bottom:1px solid var(--border);outline:none;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;padding-bottom:8px;width:100%;text-align:left">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Tutar</div>
+        <input id="sg-tutar" type="number" placeholder="0" inputmode="decimal" style="background:none;border:none;border-bottom:1px solid var(--border);outline:none;color:var(--accent);font-family:'DM Sans',sans-serif;font-size:28px;font-weight:300;letter-spacing:-1px;padding-bottom:6px;width:100%;text-align:left">
+        <div style="display:flex;gap:8px;align-items:center;width:100%">
+          <div class="sg-chip active" data-val="sinirsiz" onclick="selectSgPeriyot(this)" style="font-size:11px;padding:4px 12px">Sınırsız</div>
+          <div class="sg-chip" data-val="custom" onclick="selectSgPeriyot(this)" style="font-size:11px;padding:4px 12px">Belirli süre</div>
+          <input id="sg-periyot-custom" type="text" placeholder="örn: 6 ay" style="display:none;flex:1;background:none;border:none;border-bottom:1px solid var(--border);outline:none;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;padding-bottom:4px">
+          <input type="hidden" id="sg-periyot" value="sinirsiz">
+          <button onclick="addSabitGelir()" style="margin-left:auto;padding:7px 18px;border-radius:10px;background:var(--accent);color:#000;border:none;font-weight:800;font-size:12px;cursor:pointer;font-family:'Syne',sans-serif;letter-spacing:1px">EKLE</button>
+        </div>
+      </div>
+    </div>
+    <div class="settings-section">
       <div class="settings-title">Hakkında</div>
-      <div class="settings-item">
+      <div class="settings-item" style="cursor:pointer" onclick="openAboutModal()">
         <div class="si-icon">📱</div>
         <div class="si-content">
-          <div class="si-label">Bireysel Finans Takip</div>
-          <div class="si-sub">Tüm veriler cihazında saklanır</div>
+          <div class="si-label">BİFİT <span style="font-size:11px;font-weight:400;color:var(--muted)">Bireysel Finans Takip</span></div>
+          <div class="si-sub">Detaylar için bas</div>
         </div>
+        <div style="color:var(--muted);font-size:16px">›</div>
       </div>
     </div>
     <div class="settings-section">
@@ -547,6 +570,7 @@ nav {
           <option>Alışveriş</option>
           <option>Sosyal Harcama</option>
           <option>Hedef</option>
+          <option value="Değişken Gelir">Değişken Gelir</option>
         </select>
       </div>
     </div>
@@ -564,7 +588,7 @@ nav {
         <input type="date" id="h-tarih" class="fv">
       </div>
     </div>
-    <div class="form-field">
+    <div class="form-field" id="periyot-row">
       <span class="fi">🔁</span>
       <div class="fc">
         <div class="fl">Sabit Gider Periyodu</div>
@@ -576,10 +600,6 @@ nav {
           <option value="1 yil">1 Yıl</option>
         </select>
       </div>
-    </div>
-    <div class="toggle-row">
-      <div class="toggle-label"><span>🍽️</span> Yemek Kartı</div>
-      <div class="toggle-switch" id="yemek-toggle" onclick="toggleYemek()"></div>
     </div>
     <button class="save-btn" onclick="saveHarcama()">Kaydet</button>
     <button class="del-btn" id="del-btn" style="display:none" onclick="deleteHarcama()">Sil</button>
@@ -634,6 +654,21 @@ nav {
   </div>
 </div>
 
+<div class="modal-overlay" id="about-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Uygulama Bilgisi</div>
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:48px;margin-bottom:8px">📱</div>
+      <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;letter-spacing:1px">BİFİT</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px">Bireysel Finans Takip</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">BİR ALPER SAMAST UYGULAMASIDIR</div>
+    </div>
+    <div id="about-stats" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px"></div>
+    <button onclick="closeModals()" style="width:100%;padding:14px;border-radius:16px;background:var(--card);color:var(--text);border:1px solid var(--border);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer">Kapat</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -641,9 +676,11 @@ nav {
 let db = {
   harcamalar: [],
   taksitler: [],
+  sabitGelirler: [],
   maas: 0,
   nextHId: 1,
-  nextTId: 1
+  nextTId: 1,
+  nextGId: 1
 };
 
 function loadDB() {
@@ -660,7 +697,6 @@ function saveDB() {
 // ── STATE ─────────────────────────────────────────────
 let currentScreen = 'home';
 let currentTur = 'Gider';
-let yemekKarti = false;
 let editingHId = null;
 let currentFilter = 'Tümü';
 let viewMonth = new Date().getMonth();
@@ -712,8 +748,11 @@ function renderHome() {
   const aylik = getAylikHarcamalar();
   const taksitAylik = getTaksitAylik();
   const toplamGider = aylik.filter(h => h.tur === 'Gider').reduce((s,h) => s + h.miktar, 0);
-  const kalan = db.maas - toplamGider - taksitAylik;
-  document.getElementById('home-maas').textContent = fmt(db.maas);
+  const degiskenGelir = aylik.filter(h => h.tur === 'Gelir').reduce((s,h) => s + h.miktar, 0);
+  const sabitGelirToplam = (db.sabitGelirler || []).reduce((s,g) => s + g.tutar, 0);
+  const toplamGelir = db.maas + sabitGelirToplam + degiskenGelir;
+  const kalan = toplamGelir - toplamGider - taksitAylik;
+  document.getElementById('home-maas').textContent = fmt(toplamGelir);
   document.getElementById('home-gider').textContent = fmt(toplamGider);
   document.getElementById('home-taksit').textContent = fmt(taksitAylik) + '/ay';
   document.getElementById('home-kalan').innerHTML = '<span>₺</span>' + fmtNum(kalan);
@@ -737,7 +776,7 @@ function renderTxnList() {
       <div class="txn-icon" style="background:${KAT_COLORS[h.kategori]||'rgba(107,113,128,0.12)'}">${KAT_ICONS[h.kategori]||'💳'}</div>
       <div class="txn-info">
         <div class="txn-name">${h.aciklama || h.kategori}</div>
-        <div class="txn-cat">${h.kategori} · ${fmtDate(h.tarih)}${h.yemekKarti?' · 🍽️':''}</div>
+        <div class="txn-cat">${h.kategori} · ${fmtDate(h.tarih)}</div>
       </div>
       <div class="txn-amt" style="color:${h.tur==='Gider'?'var(--danger)':'var(--accent)'}">${h.tur==='Gider'?'-':'+'} ${fmt(h.miktar)}</div>
     </div>
@@ -803,14 +842,14 @@ function renderOzet() {
   const aylik = getAylikHarcamalar();
   const giderler = aylik.filter(h => h.tur === 'Gider');
   const toplamGider = giderler.reduce((s,h) => s + h.miktar, 0);
-  const toplamGelir = db.maas;
-  const yemek = giderler.filter(h => h.yemekKarti).reduce((s,h) => s + h.miktar, 0);
+  const sabitGelirToplam2 = (db.sabitGelirler || []).reduce((s,g) => s + g.tutar, 0);
+  const degiskenGelir2 = aylik.filter(h => h.tur === 'Gelir').reduce((s,h) => s + h.miktar, 0);
+  const toplamGelir = db.maas + sabitGelirToplam2 + degiskenGelir2;
   const taksitAylik = getTaksitAylik();
   const kalan = toplamGelir - toplamGider - taksitAylik;
 
   document.getElementById('oz-gelir').textContent = fmt(toplamGelir);
   document.getElementById('oz-gider').textContent = fmt(toplamGider);
-  document.getElementById('oz-yemek').textContent = fmt(yemek);
   document.getElementById('oz-kalan').textContent = fmt(kalan);
   document.getElementById('oz-kalan').style.color = kalan >= 0 ? 'var(--accent)' : 'var(--danger)';
   document.getElementById('oz-donut-val').textContent = fmt(toplamGider);
@@ -871,6 +910,68 @@ function renderOzet() {
 // ── AYARLAR ───────────────────────────────────────────
 function renderAyarlar() {
   document.getElementById('maas-input').value = db.maas || '';
+  renderSabitGelirler();
+}
+
+function renderSabitGelirler() {
+  const list = document.getElementById('sabit-gelir-list');
+  if (!list) return;
+  list.innerHTML = (db.sabitGelirler || []).map(g => `
+    <div class="settings-item">
+      <div class="si-icon">💰</div>
+      <div class="si-content">
+        <div class="si-label">${g.ad}</div>
+        <div class="si-sub">${fmt(g.tutar)} · ${g.periyot === 'sinirsiz' ? 'Sınırsız' : g.periyot}</div>
+      </div>
+      <button onclick="deleteSabitGelir(${g.id})" style="background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.2);color:var(--danger);border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0">Sil</button>
+    </div>
+  `).join('') || '<div style="padding:8px 4px;font-size:12px;color:var(--muted)">Henüz sabit gelir yok</div>';
+}
+
+function selectSgPeriyot(el) {
+  document.querySelectorAll('.sg-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  const val = el.dataset.val;
+  const customInput = document.getElementById('sg-periyot-custom');
+  if (val === 'custom') {
+    customInput.style.display = 'block';
+    customInput.focus();
+    document.getElementById('sg-periyot').value = '';
+  } else {
+    customInput.style.display = 'none';
+    document.getElementById('sg-periyot').value = val;
+  }
+}
+
+function addSabitGelir() {
+  const ad = document.getElementById('sg-ad').value.trim();
+  const tutar = parseFloat(document.getElementById('sg-tutar').value);
+  if (!ad || !tutar) { showToast('Ad ve tutar gir ⚠️'); return; }
+  if (!db.sabitGelirler) db.sabitGelirler = [];
+  let periyot = document.getElementById('sg-periyot').value;
+  const customVal = document.getElementById('sg-periyot-custom').value.trim();
+  if (!periyot && customVal) periyot = customVal;
+  if (!periyot) periyot = 'sinirsiz';
+  db.sabitGelirler.push({ id: db.nextGId++, ad, tutar, periyot });
+  // reset
+  document.getElementById('sg-periyot').value = 'sinirsiz';
+  document.getElementById('sg-periyot-custom').value = '';
+  document.getElementById('sg-periyot-custom').style.display = 'none';
+  document.querySelectorAll('.sg-chip').forEach((c,i) => c.classList.toggle('active', i===0));
+  document.getElementById('sg-ad').value = '';
+  document.getElementById('sg-tutar').value = '';
+  saveDB();
+  renderSabitGelirler();
+  renderHome();
+  showToast('Sabit gelir eklendi ✓');
+}
+
+function deleteSabitGelir(id) {
+  db.sabitGelirler = (db.sabitGelirler || []).filter(g => g.id !== id);
+  saveDB();
+  renderSabitGelirler();
+  renderHome();
+  showToast('Silindi');
 }
 
 function saveMaas(val) {
@@ -883,13 +984,11 @@ function saveMaas(val) {
 function openHarcamaModal(id = null) {
   editingHId = id;
   currentTur = 'Gider';
-  yemekKarti = false;
   document.getElementById('h-miktar').value = '';
   document.getElementById('h-aciklama').value = '';
   document.getElementById('h-tarih').value = today();
   document.getElementById('h-periyot').value = '';
   document.getElementById('h-kategori').value = 'Sabit Gider';
-  document.getElementById('yemek-toggle').classList.remove('on');
   document.getElementById('del-btn').style.display = 'none';
   document.getElementById('harcama-modal-title').textContent = 'Harcama Ekle';
   setTur('Gider');
@@ -903,8 +1002,6 @@ function openHarcamaModal(id = null) {
       document.getElementById('h-tarih').value = h.tarih.slice(0,10);
       document.getElementById('h-periyot').value = h.periyot || '';
       document.getElementById('h-kategori').value = h.kategori;
-      yemekKarti = h.yemekKarti;
-      if (yemekKarti) document.getElementById('yemek-toggle').classList.add('on');
       document.getElementById('del-btn').style.display = 'block';
       setTur(h.tur);
     }
@@ -918,11 +1015,27 @@ function setTur(tur) {
   currentTur = tur;
   document.getElementById('btn-gider').className = 'type-btn' + (tur==='Gider'?' gider-active':'');
   document.getElementById('btn-gelir').className = 'type-btn' + (tur==='Gelir'?' gelir-active':'');
-}
-
-function toggleYemek() {
-  yemekKarti = !yemekKarti;
-  document.getElementById('yemek-toggle').classList.toggle('on', yemekKarti);
+  const katSel = document.getElementById('h-kategori');
+  const periyotRow = document.getElementById('periyot-row');
+  if (tur === 'Gelir') {
+    katSel.innerHTML = `
+      <option value="Prim">Prim</option>
+      <option value="Mesai">Mesai</option>
+      <option value="Freelance">Freelance</option>
+      <option value="Diğer Gelir">Diğer Gelir</option>
+    `;
+    if (periyotRow) periyotRow.style.display = 'none';
+  } else {
+    katSel.innerHTML = `
+      <option>Sabit Gider</option>
+      <option>Nadir Gider</option>
+      <option>Sürpriz Gider</option>
+      <option>Alışveriş</option>
+      <option>Sosyal Harcama</option>
+      <option>Hedef</option>
+    `;
+    if (periyotRow) periyotRow.style.display = '';
+  }
 }
 
 function saveHarcama() {
@@ -937,7 +1050,6 @@ function saveHarcama() {
     aciklama: document.getElementById('h-aciklama').value,
     tur: currentTur,
     periyot: document.getElementById('h-periyot').value || null,
-    yemekKarti
   };
 
   if (editingHId !== null) {
@@ -955,7 +1067,6 @@ function saveHarcama() {
 }
 
 function deleteHarcama() {
-  if (!confirm('Bu harcamayı sil?')) return;
   db.harcamalar = db.harcamalar.filter(x => x.id !== editingHId);
   saveDB();
   closeModals();
@@ -1078,6 +1189,41 @@ function exportData() {
   a.href = URL.createObjectURL(blob);
   a.download = 'finans_yedek.json';
   a.click();
+}
+
+function openAboutModal() {
+  const harcamaSayisi = db.harcamalar.length;
+  const taksitSayisi = db.taksitler.length;
+  const sabitGelirSayisi = (db.sabitGelirler || []).length;
+  const buAyHarcama = db.harcamalar.filter(h => {
+    const d = new Date(h.tarih);
+    return d.getMonth() === new Date().getMonth() && d.getFullYear() === new Date().getFullYear();
+  }).length;
+
+  // localStorage boyutu
+  const raw = localStorage.getItem('finans_db') || '';
+  const bytes = new Blob([raw]).size;
+  let boyut;
+  if (bytes < 1024) boyut = bytes + ' B';
+  else if (bytes < 1024 * 1024) boyut = (bytes / 1024).toFixed(1) + ' KB';
+  else if (bytes < 1024 * 1024 * 1024) boyut = (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  else boyut = (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+
+  const stats = [
+    ['📊', 'Toplam Harcama', harcamaSayisi + ' kayıt'],
+    ['📅', 'Bu Ay Harcama', buAyHarcama + ' kayıt'],
+    ['💾', 'Yerel Depolama', boyut],
+  ];
+
+  document.getElementById('about-stats').innerHTML = stats.map(([icon, label, val]) => `
+    <div style="display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px">
+      <span style="font-size:18px">${icon}</span>
+      <span style="flex:1;font-size:13px;color:var(--muted)">${label}</span>
+      <span style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700">${val}</span>
+    </div>
+  `).join('');
+
+  document.getElementById('about-modal').classList.add('open');
 }
 
 function forceUpdate() {
