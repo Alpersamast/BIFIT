@@ -673,7 +673,25 @@ nav {
       <div style="font-size:11px;color:var(--muted);margin-top:4px">BİR ALPER SAMAST UYGULAMASIDIR</div>
     </div>
     <div id="about-stats" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px"></div>
-    <button onclick="closeModals()" style="width:100%;padding:14px;border-radius:16px;background:var(--card);color:var(--text);border:1px solid var(--border);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer">Kapat</button>
+    <button onclick="closeModals()" style="width:100%;padding:14px;border-radius:16px;background:var(--card);color:var(--text);border:1px solid var(--border);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px">Kapat</button>
+    <button onclick="clearAllData()" style="width:100%;padding:14px;border-radius:16px;background:rgba(248,113,113,0.1);color:var(--danger);border:1px solid rgba(248,113,113,0.2);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer">⚙️ Fabrika Ayarlarına Sıfırla (Tüm veriyi siler)</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="reset-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">⚠️ Tüm Veriyi Sil</div>
+    <p style="text-align:center;color:var(--muted);font-size:13px;margin-bottom:20px">Bu işlem geri alınamaz. Devam etmek için geliştiricinin belirlediği şifreyi girin.</p>
+    <div class="form-field">
+      <span class="fi">🔐</span>
+      <div class="fc">
+        <div class="fl">Şifre</div>
+        <input type="password" id="reset-sifre" class="fv" placeholder="Şifreyi girin...">
+      </div>
+    </div>
+    <button onclick="confirmClear()" style="width:100%;padding:14px;border-radius:16px;background:rgba(248,113,113,0.15);color:var(--danger);border:1px solid rgba(248,113,113,0.3);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px">Sil</button>
+    <button onclick="closeModals()" style="width:100%;padding:14px;border-radius:16px;background:var(--card);color:var(--text);border:1px solid var(--border);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px">Vazgeç</button>
   </div>
 </div>
 
@@ -1315,6 +1333,26 @@ function exportData() {
   a.href = URL.createObjectURL(blob);
   a.download = 'finans_yedek.json';
   a.click();
+}
+
+function clearAllData() {
+  closeModals();
+  document.getElementById('reset-sifre').value = '';
+  document.getElementById('reset-modal').classList.add('open');
+  setTimeout(() => document.getElementById('reset-sifre').focus(), 300);
+}
+
+function confirmClear() {
+  if (document.getElementById('reset-sifre').value !== 'RESET') {
+    showToast('Hatalı şifre ⚠️');
+    document.getElementById('reset-sifre').value = '';
+    return;
+  }
+  localStorage.removeItem('finans_db');
+  db = { harcamalar: [], taksitler: [], sabitGelirler: [], maas: 0, maasGecmis: [], nextHId: 1, nextTId: 1, nextGId: 1 };
+  closeModals();
+  renderHome();
+  showToast('Tüm veriler silindi');
 }
 
 function openAboutModal() {
