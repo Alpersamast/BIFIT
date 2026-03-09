@@ -434,7 +434,13 @@ nav {
     </div>
     <div class="stat-row">
       <div class="stat-box"><label>Toplam Gelir</label><div class="sv val-green" id="oz-gelir">₺0</div></div>
-      <div class="stat-box"><label>Toplam Gider</label><div class="sv val-red" id="oz-gider">₺0</div></div>
+      <div class="stat-box"><label>Harcama</label><div class="sv val-red" id="oz-gider">₺0</div></div>
+      <div class="stat-box"><label>Taksit</label><div class="sv val-red" id="oz-taksit">₺0</div></div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 16px 8px">
+      <button onclick="changeOzetMonth(-1)" style="background:none;border:none;color:var(--text);font-size:22px;cursor:pointer;padding:4px 8px">‹</button>
+      <span id="ozet-ay-nav" style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--accent)"></span>
+      <button onclick="changeOzetMonth(1)" style="background:none;border:none;color:var(--text);font-size:22px;cursor:pointer;padding:4px 8px">›</button>
     </div>
     <div class="donut-wrap">
       <svg viewBox="0 0 100 100" style="transform:rotate(-90deg)">
@@ -443,6 +449,7 @@ nav {
         <circle id="donut-sosyal" cx="50" cy="50" r="38" fill="none" stroke="#c8f060" stroke-width="14" stroke-dasharray="0 238.76"/>
         <circle id="donut-alisveris" cx="50" cy="50" r="38" fill="none" stroke="#60a5fa" stroke-width="14" stroke-dasharray="0 238.76"/>
         <circle id="donut-diger" cx="50" cy="50" r="38" fill="none" stroke="#fbbf24" stroke-width="14" stroke-dasharray="0 238.76"/>
+        <circle id="donut-taksit" cx="50" cy="50" r="38" fill="none" stroke="#a78bfa" stroke-width="14" stroke-dasharray="0 238.76"/>
       </svg>
       <div class="donut-center">
         <div class="donut-center-val" id="oz-donut-val">₺0</div>
@@ -701,6 +708,8 @@ let editingHId = null;
 let currentFilter = 'Tümü';
 let viewMonth = new Date().getMonth();
 let viewYear = new Date().getFullYear();
+let ozetMonth = new Date().getMonth();
+let ozetYear = new Date().getFullYear();
 
 const MONTHS = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
 const KAT_ICONS = {
@@ -728,6 +737,13 @@ function showScreen(name) {
 }
 
 // ── MONTH ─────────────────────────────────────────────
+function changeOzetMonth(dir) {
+  ozetMonth += dir;
+  if (ozetMonth > 11) { ozetMonth = 0; ozetYear++; }
+  if (ozetMonth < 0) { ozetMonth = 11; ozetYear--; }
+  renderOzet();
+}
+
 function changeMonth(dir) {
   viewMonth += dir;
   if (viewMonth > 11) { viewMonth = 0; viewYear++; }
@@ -838,8 +854,9 @@ function renderTaksitler() {
 
 // ── ÖZET RENDER ───────────────────────────────────────
 function renderOzet() {
-  document.getElementById('ozet-ay-label').textContent = MONTHS[viewMonth] + ' ' + viewYear;
-  const aylik = getAylikHarcamalar();
+  document.getElementById('ozet-ay-label').textContent = MONTHS[ozetMonth] + ' ' + ozetYear;
+  const ozNav = document.getElementById('ozet-ay-nav'); if(ozNav) ozNav.textContent = MONTHS[ozetMonth] + ' ' + ozetYear;
+  const aylik = db.harcamalar.filter(h => { const d = new Date(h.tarih); return d.getMonth() === ozetMonth && d.getFullYear() === ozetYear; });
   const giderler = aylik.filter(h => h.tur === 'Gider');
   const toplamGider = giderler.reduce((s,h) => s + h.miktar, 0);
   const sabitGelirToplam2 = (db.sabitGelirler || []).reduce((s,g) => s + g.tutar, 0);
@@ -850,6 +867,7 @@ function renderOzet() {
 
   document.getElementById('oz-gelir').textContent = fmt(toplamGelir);
   document.getElementById('oz-gider').textContent = fmt(toplamGider);
+  document.getElementById('oz-taksit').textContent = fmt(taksitAylik);
   document.getElementById('oz-kalan').textContent = fmt(kalan);
   document.getElementById('oz-kalan').style.color = kalan >= 0 ? 'var(--accent)' : 'var(--danger)';
   document.getElementById('oz-donut-val').textContent = fmt(toplamGider);
@@ -867,13 +885,14 @@ function renderOzet() {
     { key: 'Alışveriş', id: 'donut-alisveris', color: '#60a5fa' },
   ];
 
+  const toplamPasta = toplamGider + taksitAylik;
   let offset = 0;
   const digerKeys = Object.keys(groups).filter(k => !cats.map(c=>c.key).includes(k));
   const digerTotal = digerKeys.reduce((s,k) => s + groups[k], 0);
 
   cats.forEach(c => {
     const val = groups[c.key] || 0;
-    const arc = toplamGider > 0 ? (val / toplamGider) * circ : 0;
+    const arc = toplamPasta > 0 ? (val / toplamPasta) * circ : 0;
     const el = document.getElementById(c.id);
     el.setAttribute('stroke-dasharray', `${arc} ${circ}`);
     el.setAttribute('stroke-dashoffset', -offset);
@@ -881,7 +900,7 @@ function renderOzet() {
   });
 
   // diger
-  const digerArc = toplamGider > 0 ? (digerTotal / toplamGider) * circ : 0;
+  const digerArc = toplamPasta > 0 ? (digerTotal / toplamPasta) * circ : 0;
   const dd = document.getElementById('donut-diger');
   dd.setAttribute('stroke-dasharray', `${digerArc} ${circ}`);
   dd.setAttribute('stroke-dashoffset', -offset);
@@ -896,15 +915,24 @@ function renderOzet() {
     return;
   }
 
-  legend.innerHTML = Object.entries(allGroups)
+  const legendItems = Object.entries(allGroups)
     .sort((a,b) => b[1]-a[1])
     .map(([k,v]) => `
       <div class="legend-item">
         <div class="legend-dot" style="background:${colorMap[k]||'#888'}"></div>
         <div class="legend-name">${k}</div>
-        <div class="legend-pct">%${toplamGider>0?Math.round(v/toplamGider*100):0}</div>
+        <div class="legend-pct">%${toplamPasta>0?Math.round(v/toplamPasta*100):0}</div>
         <div class="legend-amt" style="color:${colorMap[k]||'#888'}">${fmt(v)}</div>
       </div>`).join('');
+  const taksitLegend = taksitAylik > 0 ? `
+    <div class="legend-item">
+      <div class="legend-dot" style="background:#a78bfa"></div>
+      <div class="legend-name">Taksit</div>
+      <div class="legend-pct">%${toplamPasta>0?Math.round(taksitAylik/toplamPasta*100):0}</div>
+      <div class="legend-amt" style="color:#a78bfa">${fmt(taksitAylik)}</div>
+    </div>` : '';
+  legend.innerHTML = taksitLegend + legendItems;
+  
 }
 
 // ── AYARLAR ───────────────────────────────────────────
