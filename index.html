@@ -1030,11 +1030,20 @@ function renderTaksitler() {
     let gecen = aylarFarki(t.baslangicTarihi, hedefAy, hedefYil);
     gecen = Math.max(0, Math.min(gecen, t.taksitSayisi));
 
-    const kalanSayi = Math.max(0, t.taksitSayisi - gecen);
-    const pct = Math.round((gecen / t.taksitSayisi) * 100);
+    // Görsel ilerleme ve kalan sayısı:
+    // - Başlangıç ayındaysa 1 taksit "geçmiş" sayılır (1/12)
+    // - Gelecek aylar: 0 geçmiş
+    // - Bitmiş: tamamı geçmiş
+    let gecenGoster = 0;
+    if (isGelecek) gecenGoster = 0;
+    else if (isBitti) gecenGoster = t.taksitSayisi;
+    else gecenGoster = Math.max(1, Math.min(t.taksitSayisi, gecen + 1));
+
+    const kalanSayi = Math.max(0, t.taksitSayisi - gecenGoster);
+    const pct = Math.round((gecenGoster / t.taksitSayisi) * 100);
     const kalanTutar = kalanSayi * (t.toplamTutar / t.taksitSayisi);
 
-    const card = buildTaksitCard(t, { gecen, pct, kalanTutar, isBitti, isGelecek });
+    const card = buildTaksitCard(t, { gecen: gecenGoster, pct, kalanTutar, isBitti, isGelecek });
 
     if (isBitti) {
       finishedItemsThisMonth.push(card);
