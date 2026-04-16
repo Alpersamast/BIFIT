@@ -412,11 +412,6 @@ nav {
 
   <!-- TAKSİTLER -->
   <div class="screen" id="screen-taksit">
-    <div class="month-nav">
-  <button onclick="changeTaksitMonth(-1)">‹</button>
-  <span id="taksit-month-label"></span>
-  <button onclick="changeTaksitMonth(1)">›</button>
-</div>
     <div class="page-header" style="padding-top:max(16px,env(safe-area-inset-top))">
       <div class="page-title">Taksitler</div>
     </div>
@@ -425,10 +420,45 @@ nav {
       <div class="stat-box"><label>Toplam Kalan</label><div class="sv val-red" id="t-kalan">₺0</div></div>
     </div>
     <div style="height:12px"></div>
-    <div style="padding:0 16px" id="taksit-list"></div>
+    <div class="month-nav">
+      <button onclick="changeTaksitMonth(-1)">‹</button>
+      <span id="taksit-month-label"></span>
+      <button onclick="changeTaksitMonth(1)">›</button>
+    </div>
+    <div style="padding:0 16px;margin:8px 0 10px">
+      <button onclick="showScreen('taksit-bitti')" style="width:100%;padding:12px 14px;border-radius:14px;background:var(--card);border:1px solid var(--border);color:var(--text);font-family:'Syne',sans-serif;font-size:12px;font-weight:800;letter-spacing:1px;cursor:pointer;display:flex;align-items:center;justify-content:space-between">
+        <span>Bitmiş Taksitler</span>
+        <span style="color:var(--muted);font-family:'DM Sans',sans-serif;font-weight:600" id="t-bitti-count">0</span>
+      </button>
+    </div>
+    <div style="padding:0 16px" id="taksit-list-active"></div>
     <div style="padding:0 16px;margin-top:4px">
       <button class="add-dashed" onclick="openTaksitModal()">＋ Yeni taksit ekle</button>
     </div>
+  </div>
+
+  <!-- BİTMİŞ TAKSİTLER -->
+  <div class="screen" id="screen-taksit-bitti">
+    <div class="page-header" style="padding-top:max(16px,env(safe-area-inset-top))">
+      <div style="display:flex;align-items:center;gap:10px">
+        <button onclick="showScreen('taksit')" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:12px;padding:8px 12px;cursor:pointer;font-size:16px;line-height:1">‹</button>
+        <div>
+          <div class="page-title">Bitmiş Taksitler</div>
+          <div class="page-sub" id="taksit-bitti-month-label"></div>
+        </div>
+      </div>
+    </div>
+    <div class="month-nav">
+      <button onclick="changeTaksitMonth(-1)">‹</button>
+      <span id="taksit-month-label-2"></span>
+      <button onclick="changeTaksitMonth(1)">›</button>
+    </div>
+    <div class="stat-row" style="margin-top:8px">
+      <div class="stat-box"><label>Toplam Tutar</label><div class="sv val-blue" id="t-bitti-toplam">₺0</div></div>
+      <div class="stat-box"><label>Adet</label><div class="sv" id="t-bitti-adet">0</div></div>
+    </div>
+    <div style="height:12px"></div>
+    <div style="padding:0 16px" id="taksit-list-finished"></div>
   </div>
 
   <!-- ÖZET -->
@@ -759,6 +789,7 @@ function showScreen(name) {
   currentScreen = name;
   if (name === 'home') renderHome();
   if (name === 'taksit') renderTaksitler();
+  if (name === 'taksit-bitti') renderTaksitler();
   if (name === 'ozet') renderOzet();
   if (name === 'ayarlar') renderAyarlar();
 }
@@ -819,11 +850,20 @@ function renderHome() {
   const toplamGider = aylik.filter(h => h.tur === 'Gider').reduce((s,h) => s + h.miktar, 0);
   const degiskenGelir = aylik.filter(h => h.tur === 'Gelir').reduce((s,h) => s + h.miktar, 0);
   const sabitGelirToplam = getSabitGelirForAy(viewMonth, viewYear);
-  const toplamGelir = getMaasForAy(viewMonth, viewYear) + sabitGelirToplam + degiskenGelir;
-  const kalan = toplamGelir - toplamGider - taksitAylik;
+  let toplamGelir = getMaasForAy(viewMonth, viewYear) + sabitGelirToplam + degiskenGelir;
+  let tg = toplamGider;
+  let ta = taksitAylik;
+  // 0'a çok yakın değerleri 0 kabul et (yuvarlamada 1 görünmesin)
+  if (Math.abs(toplamGelir) < 0.5) toplamGelir = 0;
+  if (Math.abs(tg) < 0.5) tg = 0;
+  if (Math.abs(ta) < 0.5) ta = 0;
+
+  let kalan = toplamGelir - tg - ta;
+  if (Math.abs(kalan) < 0.5) kalan = 0;
+
   document.getElementById('home-maas').textContent = fmt(toplamGelir);
-  document.getElementById('home-gider').textContent = fmt(toplamGider);
-  document.getElementById('home-taksit').textContent = fmt(taksitAylik) + '/ay';
+  document.getElementById('home-gider').textContent = fmt(tg);
+  document.getElementById('home-taksit').textContent = fmt(ta) + '/ay';
   document.getElementById('home-kalan').innerHTML = '<span>₺</span>' + fmtNum(kalan);
   document.getElementById('home-kalan').style.color = kalan >= 0 ? 'var(--accent)' : 'var(--danger)';
   renderTxnList();
@@ -854,15 +894,32 @@ function renderTxnList() {
 }
 
 // ── TAKSİT RENDER ─────────────────────────────────────
-function checkTaksitler() {
-  let changed = false;
-  db.taksitler.forEach(t => {
-    if (t.durum === 'Devam' && aylarFarki(t.baslangicTarihi) >= t.taksitSayisi) {
-      t.durum = 'Bitti';
-      changed = true;
-    }
-  });
-  if (changed) saveDB();
+function ym(month, year) {
+  return year + '-' + String(month + 1).padStart(2, '0');
+}
+
+function getTaksitBitisYM(t) {
+  const d = new Date(t.baslangicTarihi);
+  d.setMonth(d.getMonth() + t.taksitSayisi - 1);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+
+function getTaksitDurumForAy(t, month, year) {
+  if (t.durum === 'Bitti') return 'bitti'; // manuel override
+  const hedef = ym(month, year);
+  const bas = (t.baslangicTarihi || '').slice(0, 7);
+  const bit = getTaksitBitisYM(t);
+  if (hedef < bas) return 'gelecek';
+  if (hedef > bit) return 'bitti';
+  return 'aktif';
+}
+
+function isTaksitBitmisToplam(t) {
+  if (t.durum === 'Bitti') return true;
+  const now = new Date();
+  const thisYM = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  const bit = getTaksitBitisYM(t);
+  return bit < thisYM;
 }
 
 function renderTaksitler() {
@@ -871,46 +928,54 @@ function renderTaksitler() {
 
   document.getElementById('taksit-month-label').textContent =
     MONTHS[hedefAy] + ' ' + hedefYil;
+  const tml2 = document.getElementById('taksit-month-label-2');
+  if (tml2) tml2.textContent = MONTHS[hedefAy] + ' ' + hedefYil;
+  const bml = document.getElementById('taksit-bitti-month-label');
+  if (bml) bml.textContent = currentScreen === 'taksit-bitti' ? 'Tüm zamanlar' : (MONTHS[hedefAy] + ' ' + hedefYil);
+
+  const hedefStr = ym(hedefAy, hedefYil);
 
   const aylik = getTaksitAylik(hedefAy, hedefYil);
 
-  const aktif = db.taksitler;
+  // Bitmişleri toplama dahil etme: hedef aydan itibaren kalan
+  const kalan = db.taksitler.reduce((s, t) => {
+    const durum = getTaksitDurumForAy(t, hedefAy, hedefYil);
+    if (durum === 'bitti') return s;
 
-  const kalan = aktif.reduce((s, t) => {
-    let gecen = aylarFarki(t.baslangicTarihi, hedefAy, hedefYil);
-    gecen = Math.max(0, Math.min(gecen, t.taksitSayisi));
+    const bas = (t.baslangicTarihi || '').slice(0, 7);
+    const bit = getTaksitBitisYM(t);
 
-    const kalanAy = Math.max(0, t.taksitSayisi - gecen);
+    // hedef aydan itibaren kalan ay sayısı (gelecek taksitleri de dahil eder)
+    const startYM = hedefStr < bas ? bas : hedefStr;
+    const [sy, sm] = startYM.split('-').map(Number);
+    const [by, bm] = bit.split('-').map(Number);
+    const kalanAy = (by - sy) * 12 + (bm - sm) + 1; // dahil
+    if (kalanAy <= 0) return s;
+
     return s + (t.toplamTutar / t.taksitSayisi) * kalanAy;
   }, 0);
 
   document.getElementById('t-aylik').textContent = fmt(aylik);
   document.getElementById('t-kalan').textContent = fmt(kalan);
 
-  const list = document.getElementById('taksit-list');
+  const listActive = document.getElementById('taksit-list-active');
+  const listFinished = document.getElementById('taksit-list-finished');
 
   if (!db.taksitler.length) {
-    list.innerHTML = `<div class="empty-state"><div class="emoji">💳</div><p>Henüz taksit yok</p></div>`;
+    if (listActive) listActive.innerHTML = `<div class="empty-state"><div class="emoji">💳</div><p>Henüz taksit yok</p></div>`;
+    if (listFinished) listFinished.innerHTML = `<div class="empty-state"><div class="emoji">✅</div><p>Bitmiş taksit yok</p></div>`;
+    const bc0 = document.getElementById('t-bitti-count'); if (bc0) bc0.textContent = '0';
     return;
   }
 
-  list.innerHTML = db.taksitler.map(t => {
+  const buildTaksitCard = (t, { gecen, pct, kalanTutar, isBitti, isGelecek }) => {
     const aylikTutar = t.toplamTutar / t.taksitSayisi;
-
-    let gecen = aylarFarki(t.baslangicTarihi, hedefAy, hedefYil);
-    gecen = Math.max(0, Math.min(gecen, t.taksitSayisi));
-
-    const pct = Math.round((gecen / t.taksitSayisi) * 100);
-    const kalanTutar = (t.taksitSayisi - gecen) * aylikTutar;
-
-    const isBitti = gecen >= t.taksitSayisi;
-
     return `
     <div class="taksit-card" onclick="openTaksitModal(${t.id})" style="cursor:pointer">
       <div class="taksit-hdr">
         <div class="taksit-name">💳 ${t.alisverisAdi}</div>
         <div class="badge ${isBitti ? 'bitti' : ''}">
-          ${isBitti ? 'Bitti' : 'Devam'}
+          ${isBitti ? 'Bitti' : (isGelecek ? 'Başlamadı' : 'Devam')}
         </div>
       </div>
 
@@ -951,7 +1016,55 @@ function renderTaksitler() {
         </div>
       </div>
     </div>`;
-  }).join('');
+  };
+
+  const activeItems = [];
+  const finishedItemsThisMonth = [];
+
+  db.taksitler.forEach(t => {
+    let gecen = aylarFarki(t.baslangicTarihi, hedefAy, hedefYil);
+    gecen = Math.max(0, Math.min(gecen, t.taksitSayisi));
+
+    const pct = Math.round((gecen / t.taksitSayisi) * 100);
+    const kalanTutar = Math.max(0, (t.taksitSayisi - gecen)) * (t.toplamTutar / t.taksitSayisi);
+
+    const durum = getTaksitDurumForAy(t, hedefAy, hedefYil);
+    const isBitti = durum === 'bitti';
+    const isGelecek = durum === 'gelecek';
+
+    const card = buildTaksitCard(t, { gecen, pct, kalanTutar, isBitti, isGelecek });
+    (isBitti ? finishedItemsThisMonth : activeItems).push(card);
+  });
+
+  // Toplam bitmişler (tüm zamanlar)
+  const finishedAll = db.taksitler
+    .filter(isTaksitBitmisToplam)
+    .slice()
+    .sort((a, b) => getTaksitBitisYM(b).localeCompare(getTaksitBitisYM(a)))
+    .map(t => buildTaksitCard(t, { gecen: t.taksitSayisi, pct: 100, kalanTutar: 0, isBitti: true, isGelecek: false }));
+  const finishedAllTotal = db.taksitler
+    .filter(isTaksitBitmisToplam)
+    .reduce((s, t) => s + (parseFloat(t.toplamTutar) || 0), 0);
+
+  if (listActive) {
+    listActive.innerHTML = activeItems.length
+      ? activeItems.join('')
+      : `<div class="empty-state"><div class="emoji">📌</div><p>Bu ay için devam eden taksit yok</p></div>`;
+  }
+
+  const bc = document.getElementById('t-bitti-count');
+  if (bc) bc.textContent = String(finishedAll.length);
+  const bt = document.getElementById('t-bitti-toplam');
+  if (bt) bt.textContent = fmt(finishedAllTotal);
+  const ba = document.getElementById('t-bitti-adet');
+  if (ba) ba.textContent = String(finishedAll.length);
+
+  // Bitmiş ekranı: tüm zamanlar bitmişlerini göster
+  if (currentScreen === 'taksit-bitti' && listFinished) {
+    listFinished.innerHTML = finishedAll.length
+      ? finishedAll.join('')
+      : `<div class="empty-state"><div class="emoji">✅</div><p>Henüz bitmiş taksit yok</p></div>`;
+  }
 }
 
 function changeTaksitMonth(dir) {
@@ -979,16 +1092,21 @@ function renderOzet() {
   const sabitGelirToplam2 = getSabitGelirForAy(ozetMonth, ozetYear);
   const degiskenGelir2 = aylik.filter(h => h.tur === 'Gelir').reduce((s,h) => s + h.miktar, 0);
   const maasAylik = getMaasForAy(ozetMonth, ozetYear);
-  const toplamGelir = maasAylik + sabitGelirToplam2 + degiskenGelir2;
-  const taksitAylik = getTaksitAylik(ozetMonth, ozetYear);
-  const kalan = toplamGelir - toplamGider - taksitAylik;
+  let toplamGelir = maasAylik + sabitGelirToplam2 + degiskenGelir2;
+  let tg = toplamGider;
+  let ta = getTaksitAylik(ozetMonth, ozetYear);
+  if (Math.abs(toplamGelir) < 0.5) toplamGelir = 0;
+  if (Math.abs(tg) < 0.5) tg = 0;
+  if (Math.abs(ta) < 0.5) ta = 0;
+  let kalan = toplamGelir - tg - ta;
+  if (Math.abs(kalan) < 0.5) kalan = 0;
 
   document.getElementById('oz-gelir').textContent = fmt(toplamGelir);
-  document.getElementById('oz-gider').textContent = fmt(toplamGider);
-  document.getElementById('oz-taksit').textContent = fmt(taksitAylik);
+  document.getElementById('oz-gider').textContent = fmt(tg);
+  document.getElementById('oz-taksit').textContent = fmt(ta);
   document.getElementById('oz-kalan').textContent = fmt(kalan);
   document.getElementById('oz-kalan').style.color = kalan >= 0 ? 'var(--accent)' : 'var(--danger)';
-  document.getElementById('oz-donut-val').textContent = fmt(toplamGider);
+  document.getElementById('oz-donut-val').textContent = fmt(tg);
 
   // Kategori grupları
   const groups = {};
@@ -1374,7 +1492,7 @@ function getTaksitAylik(month, year) {
   const hedefStr = y + '-' + String(m+1).padStart(2,'0');
   return db.taksitler
     .filter(t => {
-      if (t.durum !== 'Devam') return false;
+      if (t.durum === 'Bitti') return false; // manuel bitmiş ise hiç sayma
       const bas = t.baslangicTarihi.slice(0,7); // YYYY-MM
       const bitis = (() => {
         const d = new Date(t.baslangicTarihi);
