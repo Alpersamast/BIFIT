@@ -412,6 +412,11 @@ nav {
 
   <!-- TAKSİTLER -->
   <div class="screen" id="screen-taksit">
+    <div class="month-nav">
+  <button onclick="changeTaksitMonth(-1)">‹</button>
+  <span id="taksit-month-label"></span>
+  <button onclick="changeTaksitMonth(1)">›</button>
+</div>
     <div class="page-header" style="padding-top:max(16px,env(safe-area-inset-top))">
       <div class="page-title">Taksitler</div>
     </div>
@@ -730,6 +735,8 @@ let viewMonth = new Date().getMonth();
 let viewYear = new Date().getFullYear();
 let ozetMonth = new Date().getMonth();
 let ozetYear = new Date().getFullYear();
+let taksitMonth = new Date().getMonth();
+let taksitYear = new Date().getFullYear();
 
 const MONTHS = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
 const KAT_ICONS = {
@@ -859,45 +866,107 @@ function checkTaksitler() {
 }
 
 function renderTaksitler() {
-  checkTaksitler();
-  const aylik = getTaksitAylik(new Date().getMonth(), new Date().getFullYear());
-  const aktif = db.taksitler.filter(t => t.durum === 'Devam');
-  const kalan = aktif.reduce((s,t) => {
-    const gecen = aylarFarki(t.baslangicTarihi);
-    const odenecek = Math.max(0, t.taksitSayisi - gecen);
-    return s + (t.toplamTutar / t.taksitSayisi) * odenecek;
+  const hedefAy = taksitMonth;
+  const hedefYil = taksitYear;
+
+  document.getElementById('taksit-month-label').textContent =
+    MONTHS[hedefAy] + ' ' + hedefYil;
+
+  const aylik = getTaksitAylik(hedefAy, hedefYil);
+
+  const aktif = db.taksitler;
+
+  const kalan = aktif.reduce((s, t) => {
+    let gecen = aylarFarki(t.baslangicTarihi, hedefAy, hedefYil);
+    gecen = Math.max(0, Math.min(gecen, t.taksitSayisi));
+
+    const kalanAy = Math.max(0, t.taksitSayisi - gecen);
+    return s + (t.toplamTutar / t.taksitSayisi) * kalanAy;
   }, 0);
 
   document.getElementById('t-aylik').textContent = fmt(aylik);
   document.getElementById('t-kalan').textContent = fmt(kalan);
 
   const list = document.getElementById('taksit-list');
+
   if (!db.taksitler.length) {
     list.innerHTML = `<div class="empty-state"><div class="emoji">💳</div><p>Henüz taksit yok</p></div>`;
     return;
   }
 
   list.innerHTML = db.taksitler.map(t => {
-    const aylik = t.toplamTutar / t.taksitSayisi;
-    const gecen = Math.max(0, Math.min(aylarFarki(t.baslangicTarihi), t.taksitSayisi));
+    const aylikTutar = t.toplamTutar / t.taksitSayisi;
+
+    let gecen = aylarFarki(t.baslangicTarihi, hedefAy, hedefYil);
+    gecen = Math.max(0, Math.min(gecen, t.taksitSayisi));
+
     const pct = Math.round((gecen / t.taksitSayisi) * 100);
-    const kalanTutar = (t.taksitSayisi - gecen) * aylik;
+    const kalanTutar = (t.taksitSayisi - gecen) * aylikTutar;
+
+    const isBitti = gecen >= t.taksitSayisi;
+
     return `
     <div class="taksit-card" onclick="openTaksitModal(${t.id})" style="cursor:pointer">
       <div class="taksit-hdr">
         <div class="taksit-name">💳 ${t.alisverisAdi}</div>
-        <div class="badge ${t.durum==='Bitti'?'bitti':''}">${t.durum}</div>
+        <div class="badge ${isBitti ? 'bitti' : ''}">
+          ${isBitti ? 'Bitti' : 'Devam'}
+        </div>
       </div>
-      <div class="progress-info"><span>${gecen} / ${t.taksitSayisi} taksit ödendi</span><span>%${pct}</span></div>
-      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+
+      <div class="progress-info">
+        <span>${gecen} / ${t.taksitSayisi} taksit</span>
+        <span>%${pct}</span>
+      </div>
+
+      <div class="progress-bar">
+        <div class="progress-fill" style="width:${pct}%"></div>
+      </div>
+
       <div class="taksit-amts">
-        <div class="taksit-amt"><label>Toplam</label><span>${fmt(t.toplamTutar)}</span></div>
-        <div class="taksit-amt"><label>Aylık</label><span style="color:var(--accent2)">${fmt(aylik)}</span></div>
-        <div class="taksit-amt"><label>Kalan</label><span style="color:var(--danger)">${fmt(kalanTutar)}</span></div>
-        <div class="taksit-amt"><label>Bitiş</label><span style="color:var(--muted);font-size:11px">${(() => { const d = new Date(t.baslangicTarihi); d.setMonth(d.getMonth() + t.taksitSayisi - 1); return MONTHS[d.getMonth()] + ' ' + d.getFullYear(); })()}</span></div>
+        <div class="taksit-amt">
+          <label>Toplam</label>
+          <span>${fmt(t.toplamTutar)}</span>
+        </div>
+
+        <div class="taksit-amt">
+          <label>Aylık</label>
+          <span style="color:var(--accent2)">${fmt(aylikTutar)}</span>
+        </div>
+
+        <div class="taksit-amt">
+          <label>Kalan</label>
+          <span style="color:var(--danger)">${fmt(kalanTutar)}</span>
+        </div>
+
+        <div class="taksit-amt">
+          <label>Bitiş</label>
+          <span style="color:var(--muted);font-size:11px">
+            ${(() => {
+              const d = new Date(t.baslangicTarihi);
+              d.setMonth(d.getMonth() + t.taksitSayisi - 1);
+              return MONTHS[d.getMonth()] + ' ' + d.getFullYear();
+            })()}
+          </span>
+        </div>
       </div>
     </div>`;
   }).join('');
+}
+
+function changeTaksitMonth(dir) {
+  taksitMonth += dir;
+
+  if (taksitMonth > 11) {
+    taksitMonth = 0;
+    taksitYear++;
+  }
+  if (taksitMonth < 0) {
+    taksitMonth = 11;
+    taksitYear--;
+  }
+
+  renderTaksitler();
 }
 
 // ── ÖZET RENDER ───────────────────────────────────────
@@ -1317,10 +1386,9 @@ function getTaksitAylik(month, year) {
     .reduce((s, t) => s + t.toplamTutar / t.taksitSayisi, 0);
 }
 
-function aylarFarki(tarih) {
+function aylarFarki(tarih, hedefAy = new Date().getMonth(), hedefYil = new Date().getFullYear()) {
   const baslangic = new Date(tarih);
-  const simdi = new Date();
-  return (simdi.getFullYear() - baslangic.getFullYear()) * 12 + (simdi.getMonth() - baslangic.getMonth());
+  return (hedefYil - baslangic.getFullYear()) * 12 + (hedefAy - baslangic.getMonth());
 }
 
 function today() {
