@@ -1021,20 +1021,45 @@ function renderTaksitler() {
   const activeItems = [];
   const finishedItemsThisMonth = [];
 
+  const activeRows = [];
   db.taksitler.forEach(t => {
-    let gecen = aylarFarki(t.baslangicTarihi, hedefAy, hedefYil);
-    gecen = Math.max(0, Math.min(gecen, t.taksitSayisi));
-
-    const pct = Math.round((gecen / t.taksitSayisi) * 100);
-    const kalanTutar = Math.max(0, (t.taksitSayisi - gecen)) * (t.toplamTutar / t.taksitSayisi);
-
     const durum = getTaksitDurumForAy(t, hedefAy, hedefYil);
     const isBitti = durum === 'bitti';
     const isGelecek = durum === 'gelecek';
 
+    let gecen = aylarFarki(t.baslangicTarihi, hedefAy, hedefYil);
+    gecen = Math.max(0, Math.min(gecen, t.taksitSayisi));
+
+    const kalanSayi = Math.max(0, t.taksitSayisi - gecen);
+    const pct = Math.round((gecen / t.taksitSayisi) * 100);
+    const kalanTutar = kalanSayi * (t.toplamTutar / t.taksitSayisi);
+
     const card = buildTaksitCard(t, { gecen, pct, kalanTutar, isBitti, isGelecek });
-    (isBitti ? finishedItemsThisMonth : activeItems).push(card);
+
+    if (isBitti) {
+      finishedItemsThisMonth.push(card);
+      return;
+    }
+
+    // Devam eden listede: az taksiti kalan yukarıda
+    // Başlamadı olanları en alta it (kalanSayi aynı olsa bile)
+    const isActiveThisMonth = !isGelecek;
+    const bitYM = getTaksitBitisYM(t);
+    activeRows.push({
+      kalanSayi,
+      isActiveThisMonth,
+      bitYM,
+      card
+    });
   });
+
+  activeRows
+    .sort((a, b) => {
+      if (a.isActiveThisMonth !== b.isActiveThisMonth) return a.isActiveThisMonth ? -1 : 1;
+      if (a.kalanSayi !== b.kalanSayi) return a.kalanSayi - b.kalanSayi;
+      return a.bitYM.localeCompare(b.bitYM); // bitişi yakın olan önde
+    })
+    .forEach(r => activeItems.push(r.card));
 
   // Toplam bitmişler (tüm zamanlar)
   const finishedAll = db.taksitler
